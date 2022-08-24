@@ -43,7 +43,9 @@ def rpn_loss_cls(num_anchors):
 
 
 def class_loss_regr(num_classes):
-    def class_loss_regr_fixed_num(y_true, y_pred):
+    def class_loss_regr_fixed_num(y_true, y_pred):        
+        y_true = K.cast(y_true, tf.float32)
+        y_pred = K.cast(y_pred, tf.float32)
         x = y_true[:, :, 4*num_classes:] - y_pred
         x_abs = K.abs(x)
         x_bool = K.cast(K.less_equal(x_abs, 1.0), 'float32')
