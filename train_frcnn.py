@@ -11,20 +11,25 @@ import os
 
 import tensorflow as tf
 from keras import backend as K
-from keras.optimizers import Adam, SGD, RMSprop
+#from tensorflow.keras.optimizers import Adam, SGD, RMSprop
+from keras.optimizers import adam_v2
 from keras.layers import Input
 from keras.models import Model
 from keras_frcnn import config, data_generators
 from keras_frcnn import losses as losses
 import keras_frcnn.roi_helpers as roi_helpers
 from keras.utils import generic_utils
-from keras.callbacks import TensorBoard
+#from keras.callbacks import TensorBoard
+from tensorflow.compat.v1.keras.callbacks import TensorBoard
 
+tf_config = tf.compat.v1.ConfigProto()
+tf_config.gpu_options.allow_growth = True
+session = tf.compat.v1.Session(config=tf_config)
 
 # tensorboard 로그 작성 함수
 def write_log(callback, names, logs, batch_no):
     for name, value in zip(names, logs):
-        summary = tf.Summary()
+        summary = tf.compat.v1.Summary()
         summary_value = summary.value.add()
         summary_value.simple_value = value
         summary_value.tag = name
@@ -122,17 +127,17 @@ random.shuffle(all_imgs)
 
 num_imgs = len(all_imgs)
 
-train_imgs = [s for s in all_imgs if s['imageset'] == 'trainval']
-test_imgs = [s for s in all_imgs if s['imageset'] == 'test']
+train_imgs = [s for s in all_imgs if s['imageset'] == 'train']
+test_imgs = [s for s in all_imgs if s['imageset'] == 'val']
 
 print('Num train samples {}'.format(len(train_imgs)))
 print('Num test samples {}'.format(len(test_imgs)))
 
 # groundtruth anchor 데이터 가져오기
-data_gen_train = data_generators.get_anchor_gt(train_imgs, classes_count, C, nn.get_img_output_length, K.image_dim_ordering(), mode='train')
-data_gen_test = data_generators.get_anchor_gt(test_imgs, classes_count, C, nn.get_img_output_length, K.image_dim_ordering(), mode='test')
+data_gen_train = data_generators.get_anchor_gt(train_imgs, classes_count, C, nn.get_img_output_length, K.image_data_format(), mode='train')
+data_gen_test = data_generators.get_anchor_gt(test_imgs, classes_count, C, nn.get_img_output_length, K.image_data_format(), mode='test')
 
-if K.image_dim_ordering() == 'th':
+if K.image_data_format() == 'th':
     input_shape_img = (3, None, None)
 else:
     input_shape_img = (None, None, 3)
@@ -169,14 +174,14 @@ except:
     print('Could not load pretrained model weights. Weights can be found in the keras application folder \
         https://github.com/fchollet/keras/tree/master/keras/applications')
 
-optimizer = Adam(lr=1e-5)
-optimizer_classifier = Adam(lr=1e-5)
+optimizer = adam_v2.Adam(learning_rate = 1e-5)#Adam(lr=1e-5)
+optimizer_classifier =  adam_v2.Adam(learning_rate = 1e-5)#Adam(lr=1e-5)
 model_rpn.compile(optimizer=optimizer, loss=[losses.rpn_loss_cls(num_anchors), losses.rpn_loss_regr(num_anchors)])
 model_classifier.compile(optimizer=optimizer_classifier, loss=[losses.class_loss_cls, losses.class_loss_regr(len(classes_count)-1)], metrics={'dense_class_{}'.format(len(classes_count)): 'accuracy'})
 model_all.compile(optimizer='sgd', loss='mae')
 
 # Tensorboard log폴더 생성
-log_path = './logs'
+log_path = '/scratch/r/rbond/jorlo/ml-clusters/logs'
 if not os.path.isdir(log_path):
     os.mkdir(log_path)
 
@@ -224,7 +229,7 @@ for epoch_num in range(num_epochs):
 
         P_rpn = model_rpn.predict_on_batch(X)
 
-        R = roi_helpers.rpn_to_roi(P_rpn[0], P_rpn[1], C, K.image_dim_ordering(), use_regr=True, overlap_thresh=0.7, max_boxes=300)
+        R = roi_helpers.rpn_to_roi(P_rpn[0], P_rpn[1], C, K.image_data_format(), use_regr=True, overlap_thresh=0.7, max_boxes=300)
         # note: calc_iou converts from (x1,y1,x2,y2) to (x,y,w,h) format
         X2, Y1, Y2, IouS = roi_helpers.calc_iou(R, img_data, C, class_mapping)
 

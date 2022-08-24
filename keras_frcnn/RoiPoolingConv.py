@@ -1,4 +1,4 @@
-from keras.engine.topology import Layer
+from keras.layers import Layer
 import keras.backend as K
 
 if K.backend() == 'tensorflow':
@@ -19,7 +19,7 @@ class RoiPoolingConv(Layer):
         X_img:
         `(1, channels, rows, cols)` if dim_ordering='th'
         or 4D tensor with shape:
-        `(1, rows, cols, channels)` if dim_ordering='tf'.
+        `(1, rows, cols, channels)` if dim_ordering='channels_last'.
         X_roi:
         `(1,num_rois,4)` list of rois, with ordering (x,y,w,h)
     # Output shape
@@ -29,8 +29,8 @@ class RoiPoolingConv(Layer):
 
     def __init__(self, pool_size, num_rois, **kwargs):
 
-        self.dim_ordering = K.image_dim_ordering()
-        assert self.dim_ordering in {'tf', 'th'}, 'dim_ordering must be in {tf, th}'
+        self.dim_ordering = K.image_data_format()
+        assert self.dim_ordering in {'channels_last', 'th'}, 'dim_ordering must be in {tf, th}'
 
         self.pool_size = pool_size
         self.num_rois = num_rois
@@ -40,7 +40,7 @@ class RoiPoolingConv(Layer):
     def build(self, input_shape):
         if self.dim_ordering == 'th':
             self.nb_channels = input_shape[0][1]
-        elif self.dim_ordering == 'tf':
+        elif self.dim_ordering == 'channels_last':
             self.nb_channels = input_shape[0][3]
 
     def compute_output_shape(self, input_shape):
@@ -99,13 +99,13 @@ class RoiPoolingConv(Layer):
                         pooled_val = K.max(xm, axis=(2, 3))
                         outputs.append(pooled_val)
 
-            elif self.dim_ordering == 'tf':
+            elif self.dim_ordering == 'channels_last':
                 x = K.cast(x, 'int32')
                 y = K.cast(y, 'int32')
                 w = K.cast(w, 'int32')
                 h = K.cast(h, 'int32')
 
-                rs = tf.image.resize_images(img[:, y:y+h, x:x+w, :], (self.pool_size, self.pool_size))
+                rs = tf.image.resize(img[:, y:y+h, x:x+w, :], (self.pool_size, self.pool_size))
                 outputs.append(rs)
 
         final_output = K.concatenate(outputs, axis=0)
