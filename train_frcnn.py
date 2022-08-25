@@ -136,9 +136,15 @@ test_imgs = [s for s in all_imgs if s['imageset'] == 'val']
 print('Num train samples {}'.format(len(train_imgs)))
 print('Num test samples {}'.format(len(test_imgs)))
 
+
+
 # groundtruth anchor 데이터 가져오기
 data_gen_train = data_generators.get_anchor_gt(train_imgs, classes_count, C, nn.get_img_output_length, K.image_data_format(), mode='train')
 data_gen_test = data_generators.get_anchor_gt(test_imgs, classes_count, C, nn.get_img_output_length, K.image_data_format(), mode='test')
+
+temp = [next(data_gen_train) for _ in range(2)]
+
+print(temp[0][1])
 
 if K.image_data_format() == 'th':
     input_shape_img = (3, None, None)
@@ -213,7 +219,7 @@ for epoch_num in range(num_epochs):
 
     progbar = generic_utils.Progbar(epoch_length)   # keras progress bar 사용
     print('Epoch {}/{}'.format(epoch_num + 1, num_epochs))
-
+    tot = 0
     while True:
         # try:
         # mean overlapping bboxes 출력
@@ -226,7 +232,7 @@ for epoch_num in range(num_epochs):
 
         # data generator에서 X, Y, image 가져오기
         X, Y, img_data = next(data_gen_train)
-
+        tot += 1
         loss_rpn = model_rpn.train_on_batch(X, Y)
         #write_log(callback, ['rpn_cls_loss', 'rpn_reg_loss'], loss_rpn, train_step, log_path)
 
@@ -335,6 +341,7 @@ for epoch_num in range(num_epochs):
 
             if curr_loss < best_loss:
                 if C.verbose:
+                    print('Total samples: ', tot)
                     print('Total loss decreased from {} to {}, saving weights'.format(best_loss,curr_loss))
                 best_loss = curr_loss
                 model_all.save_weights(C.model_path)
